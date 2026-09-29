@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jewellery Calculator</title>
+    <style>
+        /* Minimalist Black and White Theme */
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #ffffff;
+            color: #000000;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            border: 2px solid #000000;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #000000;
+            padding-bottom: 15px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #000000;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: inherit;
+            font-size: 1rem;
+            box-sizing: border-box;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-width: 2px;
+        }
+
+        #result-section {
+            margin-top: 25px;
+            border-top: 2px solid #000000;
+            padding-top: 20px;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border: 1px solid #000;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .result-row.subtotal {
+            border-top: 1px dotted #000000;
+            padding-top: 10px;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .result-row.total {
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-top: 2px solid #000000;
+            padding-top: 10px;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        .value {
+            text-align: right;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Price Calculator</h1>
+
+        <div class="form-group">
+            <label for="preset">Quick Select Rate (Optional)</label>
+            <select id="preset" onchange="applyPreset()">
+                <option value="0">-- Select preset or type below --</option>
+                <option value="15160">24K Gold (₹15,160/gm)</option>
+                <option value="13950">22K Gold (₹13,950/gm)</option>
+                <option value="11450">18K Gold (₹11,450/gm)</option>
+                <option value="242">Silver (₹242/gm)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="rate">Rate per Gram (₹)</label>
+            <input type="number" id="rate" step="0.01" min="0" value="0" oninput="calculateTotal()">
+        </div>
+
+        <div class="form-group">
+            <label for="weight">Weight (in Grams)</label>
+            <input type="number" id="weight" step="0.01" min="0" value="0" oninput="calculateTotal()">
+        </div>
+
+        <div class="form-group">
+            <label for="making">Making Charges (%)</label>
+            <input type="number" id="making" step="0.1" min="0" value="0" oninput="calculateTotal()">
+        </div>
+
+        <div class="form-group">
+            <label for="gst">GST (%)</label>
+            <input type="number" id="gst" step="0.1" min="0" value="3" oninput="calculateTotal()">
+        </div>
+
+        <!-- Breakdown Section -->
+        <div id="result-section">
+            <div class="result-row">
+                <span>Base Metal Value:</span>
+                <span class="value" id="res-base">₹0.00</span>
+            </div>
+            <div class="result-row">
+                <span>+ Making Charge Amount:</span>
+                <span class="value" id="res-making">₹0.00</span>
+            </div>
+            <div class="result-row subtotal">
+                <span>Value Before Tax:</span>
+                <span class="value" id="res-pretax">₹0.00</span>
+            </div>
+            <div class="result-row">
+                <span>+ GST Amount:</span>
+                <span class="value" id="res-gst">₹0.00</span>
+            </div>
+            <div class="result-row total">
+                <span>Final Amount:</span>
+                <span class="value" id="res-total">₹0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Default fallback values if the JSON fetch fails or GitHub Action hasn't run yet
+        let currentRates = {
+            "rate_24k": 15160,
+            "rate_22k": 13950,
+            "rate_18k": 11450,
+            "rate_silver": 242
+        };
+
+        // 1. Fetch the daily rates updated by your GitHub Action
+        async function fetchRates() {
+            try {
+                // cache-buster to ensure it doesn't load a stale cached version
+                const response = await fetch('rates.json?v=' + new Date().getTime());
+                if (response.ok) {
+                    currentRates = await response.json();
+                    updateDropdownLabels();
+                }
+            } catch (error) {
+                console.log("Could not load daily rates from JSON, using default fallbacks.", error);
+            }
+        }
+
+        // 2. Update the dropdown preset text and values with the live scraped data
+        function updateDropdownLabels() {
+            const select = document.getElementById('preset');
+            
+            select.options[1].text = `24K Gold (₹${currentRates.rate_24k}/gm)`;
+            select.options[1].value = currentRates.rate_24k;
+            
+            select.options[2].text = `22K Gold (₹${currentRates.rate_22k}/gm)`;
+            select.options[2].value = currentRates.rate_22k;
+            
+            select.options[3].text = `18K Gold (₹${currentRates.rate_18k}/gm)`;
+            select.options[3].value = currentRates.rate_18k;
+            
+            select.options[4].text = `Silver (₹${currentRates.rate_silver}/gm)`;
+            select.options[4].value = currentRates.rate_silver;
+        }
+
+        // 3. Applies the rate from the dropdown into the editable text box
+        function applyPreset() {
+            const presetValue = document.getElementById('preset').value;
+            if (presetValue > 0) {
+                document.getElementById('rate').value = presetValue;
+                calculateTotal(); // Recalculate instantly
+            }
+        }
+
+        // 4. Calculates the breakdown and final total live
+        function calculateTotal() {
+            // Read values, fallback to 0 if the user deletes the number entirely
+            const rate = parseFloat(document.getElementById('rate').value) || 0;
+            const weight = parseFloat(document.getElementById('weight').value) || 0;
+            const makingPercent = parseFloat(document.getElementById('making').value) || 0;
+            const gstPercent = parseFloat(document.getElementById('gst').value) || 0;
+
+            // Calculations
+            const baseValue = rate * weight;
+            const makingAmount = (baseValue * makingPercent) / 100;
+            const preTaxValue = baseValue + makingAmount;
+            const gstAmount = (preTaxValue * gstPercent) / 100;
+            const finalTotal = preTaxValue + gstAmount;
+
+            // Format as Indian Rupees
+            const formatINR = (num) => '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            // Update UI Breakdown
+            document.getElementById('res-base').innerText = formatINR(baseValue);
+            document.getElementById('res-making').innerText = formatINR(makingAmount);
+            document.getElementById('res-pretax').innerText = formatINR(preTaxValue);
+            document.getElementById('res-gst').innerText = formatINR(gstAmount);
+            document.getElementById('res-total').innerText = formatINR(finalTotal);
+        }
+
+        // Initialize: Fetch rates first, then calculate to format zeros
+        fetchRates();
+        calculateTotal();
+    </script>
+</body>
+</html>
