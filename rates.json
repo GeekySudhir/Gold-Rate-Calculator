@@ -5,7 +5,7 @@
       "rate_24k": 14730,
       "rate_22k": 13550,
       "rate_18k": 11120,
-      "rate_silver": 231
+      "rate_silver": 13550
     },
     "diff": {
       "rate_24k": {
@@ -32,7 +32,7 @@
       "rate_24k": 14730,
       "rate_22k": 13550,
       "rate_18k": 11120,
-      "rate_silver": 231
+      "rate_silver": 13550
     }
   ]
 }
