@@ -2,10 +2,10 @@
   "latest": {
     "date": "2026-09-29",
     "rates": {
-      "rate_24k": 14850,
-      "rate_22k": 13660,
-      "rate_18k": 11210,
-      "rate_silver": 235
+      "rate_24k": 14730,
+      "rate_22k": 13550,
+      "rate_18k": 11120,
+      "rate_silver": 231
     },
     "diff": {
       "rate_24k": {
@@ -29,10 +29,10 @@
   "history": [
     {
       "date": "2026-09-29",
-      "rate_24k": 14850,
-      "rate_22k": 13660,
-      "rate_18k": 11210,
-      "rate_silver": 235
+      "rate_24k": 14730,
+      "rate_22k": 13550,
+      "rate_18k": 11120,
+      "rate_silver": 231
     }
   ]
 }
