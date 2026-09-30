@@ -2,8 +2,8 @@ name: Daily Gold Rate Scraper
 
 on:
   schedule:
-    # Runs at 11:50 AM IST (06:20 AM UTC) every day
-    - cron: '20 6 * * *'
+    # 06:17 UTC = 11:47 AM IST (odd minute avoids standard top-of-hour congestion)
+    - cron: '17 6 * * *'
   workflow_dispatch: # Allows you to run it manually from the Actions tab
 
 jobs:

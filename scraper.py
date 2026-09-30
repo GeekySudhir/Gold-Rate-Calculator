@@ -11,10 +11,15 @@ def get_ist_date():
     ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     return ist_now.strftime("%Y-%m-%d")
 
+def clean_number(raw_text):
+    if not raw_text:
+        return 0
+    cleaned = re.sub(r'[^\d]', '', raw_text)
+    return int(cleaned) if cleaned else 0
+
 def scrape_rates():
     today_date = get_ist_date()
 
-    # Load existing data to append history
     data = {"latest": {}, "history": []}
     if os.path.exists(DATA_FILE):
         try:
@@ -36,44 +41,78 @@ def scrape_rates():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            
-            # Wait for network idle ensures JS has finished executing and rendering data
-            page.goto(URL, wait_until="networkidle")
-            
-            # Extract all visible text on the page
-            text = page.inner_text("body")
-            
-            # Regex targets the metal name, ignores formatting/newlines, and finds the next ₹ value
-            patterns = {
-                "rate_24k": r"24K\s*GOLD.*?(?:₹)\s*([\d,]+)",
-                "rate_22k": r"22K\s*GOLD.*?(?:₹)\s*([\d,]+)",
-                "rate_18k": r"18K\s*GOLD.*?(?:₹)\s*([\d,]+)",
-                "rate_silver": r"SILVER.*?(?:₹)\s*([\d,]+)"
-            }
-            
-            for key, pattern in patterns.items():
-                match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-                if match:
-                    # Strip commas and convert to integer
-                    num = int(re.sub(r'[^\d]', '', match.group(1)))
-                    if num > 100:
-                        scraped_rates[key] = num
-                        
+            page.goto(URL, wait_until="networkidle", timeout=30000)
+
+            # Extract rates by scanning card containers in the DOM
+            extracted = page.evaluate('''() => {
+                const results = {};
+                const allDivs = Array.from(document.querySelectorAll('div, section, p, span'));
+                
+                // Helper to find numbers inside or immediately following a matching block
+                function findRate(keyword) {
+                    const el = allDivs.find(d => {
+                        const txt = (d.innerText || "").trim().toUpperCase();
+                        return txt === keyword || txt.startsWith(keyword + "\\n") || txt.includes(keyword + " RATE");
+                    });
+                    if (el) {
+                        const container = el.closest('div') || el.parentElement;
+                        const match = (container.innerText || "").match(/₹\\s*([\\d,]+)/);
+                        if (match) return match[1];
+                    }
+                    return null;
+                }
+
+                results.rate_22k = findRate("22K GOLD");
+                results.rate_24k = findRate("24K GOLD");
+                results.rate_18k = findRate("18K GOLD");
+                results.rate_silver = findRate("SILVER");
+                return results;
+            }''')
+
             browser.close()
+
+            scraped_rates["rate_24k"] = clean_number(extracted.get("rate_24k"))
+            scraped_rates["rate_22k"] = clean_number(extracted.get("rate_22k"))
+            scraped_rates["rate_18k"] = clean_number(extracted.get("rate_18k"))
+            scraped_rates["rate_silver"] = clean_number(extracted.get("rate_silver"))
+
     except Exception as e:
-        print(f"Playwright scraper error: {e}")
+        print(f"Playwright error: {e}")
 
-    # Fallback to current live rates if network fails
-    if scraped_rates["rate_22k"] == 0:
-        print("Failed to dynamically scrape. Using fallback values.")
-        scraped_rates = {
-            "rate_24k": 14730,
-            "rate_22k": 13550,
-            "rate_18k": 11120,
-            "rate_silver": 231
-        }
+    # Fallback to secondary regex parser if DOM evaluation missed anything
+    if scraped_rates["rate_silver"] == 0 or scraped_rates["rate_silver"] > 1000:
+        print("DOM selector missed Silver or matched gold price. Running fallback extraction...")
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(URL, wait_until="networkidle", timeout=30000)
+                
+                # Look specifically for standalone price cards (e.g., "SILVER\n₹235")
+                silver_loc = page.locator("text=/^SILVER$/i").first
+                if silver_loc:
+                    parent_text = silver_loc.locator("..").inner_text()
+                    match = re.search(r"₹\s*([\d,]+)", parent_text)
+                    if match:
+                        val = clean_number(match.group(1))
+                        # Silver rate per gram should be under 1,000
+                        if 100 < val < 1000:
+                            scraped_rates["rate_silver"] = val
+                browser.close()
+        except Exception as e:
+            print(f"Fallback scraper error: {e}")
 
-    # Identify previous day entry to calculate diffs
+    # Safety bounds check: silver per gram cannot realistically be above ₹1,000
+    if scraped_rates["rate_silver"] > 1000 or scraped_rates["rate_silver"] == 0:
+        # Fallback to previous day's silver rate from history or baseline
+        prev_silver = 235
+        for h in reversed(data["history"]):
+            if 100 < h.get("rate_silver", 0) < 1000:
+                prev_silver = h["rate_silver"]
+                break
+        scraped_rates["rate_silver"] = prev_silver
+
+    # Calculate differences against previous entry
     previous_entry = None
     for entry in reversed(data["history"]):
         if entry["date"] != today_date:
@@ -112,7 +151,7 @@ def scrape_rates():
     with open(DATA_FILE, "w") as f:
         json.dump(output_payload, f, indent=2)
 
-    print(f"Successfully calculated and saved rates: {output_payload['latest']}")
+    print(f"Successfully scraped and saved: {output_payload['latest']}")
 
 if __name__ == "__main__":
     scrape_rates()
