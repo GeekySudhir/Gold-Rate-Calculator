@@ -1,28 +1,28 @@
 {
   "latest": {
-    "date": "2026-11-01",
+    "date": "2026-11-02",
     "rates": {
-      "rate_24k": 13900,
-      "rate_22k": 12780,
-      "rate_18k": 10490,
-      "rate_silver": 189
+      "rate_24k": 13920,
+      "rate_22k": 12800,
+      "rate_18k": 10510,
+      "rate_silver": 190
     },
     "diff": {
       "rate_24k": {
-        "amount": -270,
-        "percent": -1.91
+        "amount": 20,
+        "percent": 0.14
       },
       "rate_22k": {
-        "amount": -260,
-        "percent": -1.99
+        "amount": 20,
+        "percent": 0.16
       },
       "rate_18k": {
-        "amount": -210,
-        "percent": -1.96
+        "amount": 20,
+        "percent": 0.19
       },
       "rate_silver": {
-        "amount": -5,
-        "percent": -2.58
+        "amount": 1,
+        "percent": 0.53
       }
     }
   },
@@ -264,6 +264,13 @@
       "rate_22k": 12780,
       "rate_18k": 10490,
       "rate_silver": 189
+    },
+    {
+      "date": "2026-11-02",
+      "rate_24k": 13920,
+      "rate_22k": 12800,
+      "rate_18k": 10510,
+      "rate_silver": 190
     }
   ]
 }
